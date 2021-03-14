@@ -185,12 +185,12 @@ function init() {
   // Set up camera and scene
   camera = new THREE.PerspectiveCamera(
     20,
-    renderWidth / renderHeight,
+    renderHeight / renderHeight,
     near_plane,
     far_plane
   );
 
-  camera.applyMatrix(new THREE.Matrix4().makeTranslation(0, 0, 40));
+  camera.applyMatrix(new THREE.Matrix4().makeTranslation(0, 0, 35));
 
   let jsonData = getData("umap", "wavenet", 2, 2);
   var pcBuffer = generatePointcloud(jsonData);
@@ -266,9 +266,12 @@ function onDocumentMouseMove(event) {
 function onWindowResize() {
 
   renderWidth = window.innerWidth - drawerWidth;
+  if (window.innerWidth <= 1024) {
+    renderWidth = window.innerWidth;
+  }
   renderHeight = window.innerHeight - titleHeight;
 
-  camera.aspect = renderWidth / renderHeight;
+  camera.aspect = renderHeight / renderHeight;
   camera.updateProjectionMatrix();
 
   renderer.setSize(renderWidth, renderHeight);
