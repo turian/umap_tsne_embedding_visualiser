@@ -27,6 +27,15 @@
 		a {
 			color: #fff;
 		}
+
+		#zoom-container {
+			position: absolute;
+			/* background: #ccc; */
+			border: 1px solid #ccc;
+			top: 0;
+			right: 0;
+			padding: 10px;
+		}
 	</style>
 
 	<!-- List items with avatar and action -->
@@ -46,7 +55,11 @@
 	<link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.blue_grey-deep_orange.min.css" />
 	<script defer src="https://code.getmdl.io/1.3.0/material.min.js"></script>
 
-	<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/87/three.min.js"></script>
+	<!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/87/three.min.js"></script> -->
+
+	<script type="text/javascript" src="https://threejs.org/build/three.js"></script>
+	<script type="text/javascript" src="https://threejs.org/examples/js/controls/OrbitControls.js"></script>
+
 	<script src="https://d3js.org/d3.v4.min.js"></script>
 	<script src="//rawgit.com/mrdoob/stats.js/master/build/stats.min.js"></script>
 
@@ -143,6 +156,13 @@
 				</ul>
 
 				<div id="sliders">
+					<div>
+						<div class="mdl-card__supporting-text">
+							<p id="slider-text-1">Zoom</p>
+						</div>
+						<input class="mdl-slider mdl-js-slider" type="range" id="slider-zoom" min="20" max="200" step="1" value="20"
+							oninput="updateZoom()" onchange="updateZoom()">
+					</div>
 					<p style="width:230px">
 					<div class="mdl-card__supporting-text">
 						<p id="slider-text-1">Neighbours</p>
@@ -156,19 +176,21 @@
 						oninput="updateGraph()" onchange="updateGraph()">
 					</p>
 				</div>
-
-				<a class="mdl-navigation__link" href="https://medium.com/@LeonFedden">Blog</a>
-				<a class="mdl-navigation__link" href="https://twitter.com/LeonFedden">Twitter</a>
 			</nav>
 		</div>
 		<main class="mdl-layout__content">
 			<div class="page-content">
 				<!-- Your content goes here -->
 
-				<div id="container"></div>
+				<div id="container">
+				</div>
 			</div>
 		</main>
 	</div>
+
+	<script>
+		window.panningSpeed = 0.01;
+	</script>
 
 	<script src="colors.js"></script>
 	<script type="text/javascript" src="data.json"></script>

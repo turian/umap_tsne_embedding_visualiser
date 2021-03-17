@@ -8,10 +8,6 @@ lineOut.volume = 0.4;
 var currentAudioSource = null;
 var data = JSON.parse(d);
 
-for (var i in data) {
-  console.log(i)
-}
-
 function getData(method, feature, a, b) {
   var key;
   if (method.toString() == "pca") {
@@ -29,6 +25,11 @@ var filePaths = data['filenames'];
 var renderer, scene, camera, stats;
 var pointclouds;
 var raycaster;
+
+var isPanning = false;
+var startX = null,
+  startY = null;
+
 var mouse = new THREE.Vector2();
 var intersection = null;
 var spheres = [];
@@ -42,7 +43,7 @@ var interpolationSpeed = 0.01;
 var target = null;
 var target_colors = null;
 var previousSampleIndex = -1;
-var threshold = 0.1;
+var threshold = 0.01;
 var pointSize = 2;
 var width = 150;
 var length = 150;
@@ -52,13 +53,28 @@ var titleHeight = document.getElementById("header").clientHeight;
 var renderWidth = window.innerWidth - drawerWidth;
 var renderHeight = window.innerHeight - titleHeight;
 
+let audioSources = [];
+
 init();
 animate();
+registerPanEvents();
 
 function stopAudio() {
-  if (currentAudioSource && (typeof currentAudioSource.stop === 'function')) {
-    currentAudioSource.stop();
-  }
+  // if (currentAudioSource && (typeof currentAudioSource.stop === 'function')) {
+  //   currentAudioSource.stop();
+  // }
+  audioSources.forEach(src => {
+    if (src && (typeof src.stop === 'function')) {
+      src.stop();
+    }
+  })
+}
+
+function updateZoom() {
+  var z = parseInt(document.getElementById("slider-zoom").value);
+
+  // camera.applyMatrix(new THREE.Matrix4().makeTranslation(0, 0, 60 / z));
+  camera.position.z = 700 / z;
 }
 
 function updateGraph() {
@@ -171,6 +187,15 @@ function generatePointcloud(data) {
 
 }
 
+function loadInitialDataset() {
+  let jsonData = getData("umap", "wavenet", 2, 2);
+  var pcBuffer = generatePointcloud(jsonData);
+  pcBuffer.scale.set(10, 10, 1);
+  pcBuffer.position.set(0, 0, 0);
+  scene.add(pcBuffer);
+  pointclouds = [pcBuffer];
+}
+
 function init() {
 
   var container = document.getElementById('container');
@@ -180,7 +205,7 @@ function init() {
   clock = new THREE.Clock();
 
   const near_plane = 2;
-  const far_plane = 100;
+  const far_plane = 1000;
 
   // Set up camera and scene
   camera = new THREE.PerspectiveCamera(
@@ -190,24 +215,10 @@ function init() {
     far_plane
   );
 
+
   camera.applyMatrix(new THREE.Matrix4().makeTranslation(0, 0, 35));
 
-  let jsonData = getData("umap", "wavenet", 2, 2);
-  var pcBuffer = generatePointcloud(jsonData);
-  pcBuffer.scale.set(10, 10, 1);
-  pcBuffer.position.set(0, 0, 0);
-  scene.add(pcBuffer);
-  pointclouds = [pcBuffer];
-
-
-  // jsonData = getData("umap", "mfcc", 2, 2);
-  // pcBuffer = generatePointcloud(jsonData);
-  // pcBuffer.scale.set(10, 10, 1);
-  // pcBuffer.position.set(0, 0, 0);
-  // scene.add(pcBuffer);
-
-  // pointclouds = [pcBuffer];
-
+  loadInitialDataset();
 
   var sphereGeometry = new THREE.SphereGeometry(0.1, 32, 32);
   var sphereMaterial = new THREE.MeshBasicMaterial({
@@ -236,15 +247,11 @@ function init() {
   raycaster = new THREE.Raycaster();
   raycaster.params.Points.threshold = threshold;
 
-  //
-
-  stats = new Stats();
-  container.appendChild(stats.dom);
-
-  //
 
   window.addEventListener('resize', onWindowResize, false);
   document.addEventListener('mousemove', onDocumentMouseMove, false);
+
+  onWindowResize();
 
 }
 
@@ -305,8 +312,6 @@ function animate() {
   }
 
   render();
-  stats.update();
-
 }
 
 var toggle = 0;
@@ -317,61 +322,48 @@ function render() {
 
   var intersections = raycaster.intersectObjects(pointclouds);
   intersection = (intersections.length) > 0 ? intersections[0] : null;
+  if (intersection) {
+    if (toggle > 0.02 && intersection !== null && mouseHasMoved) {
+      if (previousSampleIndex != intersection.index) {
+        console.log(intersection)
+        let filepath = filePaths[intersection.index % (filePaths.length)];
+        previousSampleIndex = intersection.index;
 
-  if (toggle > 0.02 && intersection !== null && mouseHasMoved) {
+        let file = filepath;
 
-    if (previousSampleIndex != intersection.index) {
-      let filepath = filePaths[intersection.index % (filePaths.length)];
-      previousSampleIndex = intersection.index;
+        WebAudiox.loadBuffer(context, file, function (buffer) {
+          stopAudio();
+          // init AudioBufferSourceNode
+          var source = context.createBufferSource();
+          source.buffer = buffer
+          source.connect(lineOut.destination)
 
-      // if (playPromise !== undefined) {
-      // 	playPromise.then(_ => {
-      // 		// Automatic playback started!
-      // 		// Show playing UI.
-      // 		// We can now safely pause video...
-      // 		sound.pause();
-      // 		sound.src = '';
-      // 		sound.load("vengance_dataset/" + filepath);
-      // 		sound.volume = 0.2;
-      // 		playPromise = sound.play();
-      // 	})
-      // 	.catch(error => {
-      // 		// Auto-play was prevented
-      // 		// Show paused UI.
-      // 	});
-      // }
-      //
-      // if (sound == null) {
-      // 	sound = new Audio("vengance_dataset/" + filepath);
-      // }
-      //
-      // sound.volume = 0.2;
-      // var playPromise = sound.play();
+          // start the sound now
+          source.start(0);
+          audioSources.push(source);
+        });
 
-      // load a sound and play it immediatly
-      // let file = "vengance_dataset/" + filepath;
-      let file = filepath;
-      WebAudiox.loadBuffer(context, file, function (buffer) {
-        stopAudio();
-        // init AudioBufferSourceNode
-        var source = context.createBufferSource();
-        source.buffer = buffer
-        source.connect(lineOut.destination)
+        document.getElementById("filename").innerHTML = filepath;
+      }
 
-        // start the sound now
-        source.start(0);
-        currentAudioSource = source;
-      });
+      let index = intersection.index;
+      spheres[spheresIndex].position.copy(intersection.point);
+      try {
+        let mat = spheres[spheresIndex].material.clone();
+        mat.color.setRGB(color_presets[index].r, color_presets[index].g, color_presets[index].b);
+        spheres[spheresIndex].material = mat;
+      } catch (_) {
+        console.log(_)
+      }
 
-      document.getElementById("filename").innerHTML = filepath;
-    }
+      let scaleValue = 1;
+      scaleValue = 20 / parseInt(document.getElementById("slider-zoom").value);
+      spheres[spheresIndex].scale.set(scaleValue, scaleValue, scaleValue);
+      spheresIndex = (spheresIndex + 1) % spheres.length;
 
-    spheres[spheresIndex].position.copy(intersection.point);
-    spheres[spheresIndex].scale.set(1, 1, 1);
-    spheresIndex = (spheresIndex + 1) % spheres.length;
+      toggle = 0;
 
-    toggle = 0;
-
+    } else {}
   } else {
     // stopAudio();
   }
@@ -387,5 +379,69 @@ function render() {
   toggle += clock.getDelta();
 
   renderer.render(scene, camera);
+}
 
+function registerPanEvents() {
+  let container = document.getElementById('container');
+
+  container.addEventListener('wheel', function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+    let step = 0;
+    if (e.deltaY > 0) {
+      step = 1;
+    } else {
+      step = -1;
+    }
+
+    let zoomControl = document.getElementById('slider-zoom');
+    let min = parseInt(zoomControl.getAttribute('min'));
+    let max = parseInt(zoomControl.getAttribute('max'));
+    zoomControl.value = zoomControl.value - 0 + step;
+    if (parseInt(zoomControl.value) < min) zoomControl.value = min;
+    if (parseInt(zoomControl.value) > max) zoomControl.value = max;
+    zoomControl.onchange();
+
+  })
+
+  // start
+  container.addEventListener('mousedown', function () {
+    isPanning = true;
+  })
+  container.addEventListener('touchstart', function () {
+    isPanning = true;
+  })
+
+  // move
+  function onMove(e) {
+    if (isPanning) {
+      if (!startX && !startY) {
+        startX = e.clientX;
+        startY = e.clientY;
+      } else {
+        let dx = e.clientX - startX;
+        let dy = e.clientY - startY;
+
+        startX = e.clientX;
+        startY = e.clientY;
+        camera.position.x = camera.position.x - dx * panningSpeed;
+        camera.position.y = camera.position.y + dy * panningSpeed;
+      }
+    }
+  }
+
+  container.addEventListener('mousemove', onMove)
+  container.addEventListener('touchmove', onMove);
+
+  // cancel
+  container.addEventListener('mouseup', function () {
+    isPanning = false;
+    startX = null;
+    startY = null;
+  })
+  container.addEventListener('touchend', function () {
+    isPanning = false;
+    startX = null;
+    startY = null;
+  })
 }
