@@ -325,7 +325,6 @@ function render() {
   if (intersection) {
     if (toggle > 0.02 && intersection !== null && mouseHasMoved) {
       if (previousSampleIndex != intersection.index) {
-        console.log(intersection)
         let filepath = filePaths[intersection.index % (filePaths.length)];
         previousSampleIndex = intersection.index;
 
@@ -365,6 +364,7 @@ function render() {
 
     } else {}
   } else {
+    previousSampleIndex = -1;
     // stopAudio();
   }
 
